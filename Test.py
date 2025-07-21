@@ -25,7 +25,7 @@ SEED = 2333
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
-    torch.cuda.set_device(1)
+    torch.cuda.set_device(0)
     torch.cuda.manual_seed(SEED)
 
 # Model parameters
@@ -278,6 +278,9 @@ def test(test_dataframe):
     test_result = {}
 
     for model_name in sorted(os.listdir(Model_Path)):
+        # Skip non-model files (only process .pkl files)
+        if not model_name.endswith('.pkl'):
+            continue
         print(model_name)
         model = Model()
         if torch.cuda.is_available():
