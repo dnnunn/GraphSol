@@ -73,9 +73,7 @@ def load_features(sequence_name, sequence, mean, std, blosum):
     # len(sequence) * 94
     feature_matrix = np.concatenate([blosum_matrix, oneD_matrix], axis=1)
     feature_matrix = (feature_matrix - mean) / std
-    part1 = feature_matrix[:,0:20]
-    part2 = feature_matrix[:,23:]
-    feature_matrix = np.concatenate([part1,part2],axis=1)
+    # Keep all 94 dimensions for compatibility with pre-trained model
     return feature_matrix
 
 
