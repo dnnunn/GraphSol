@@ -3,6 +3,24 @@ A Protein Solubility Predictor developed by Graph Convolutional Network and Pred
 
 The source code for our paper [Structure-aware protein solubility prediction from sequence through graph convolutional network and predicted contact map](https://jcheminf.biomedcentral.com/articles/10.1186/s13321-021-00488-1)
 
+## 0. Update(2025-07-21) - Tested Installation
+
+**Successfully tested and verified on Google Cloud VM with NVIDIA L4 GPU**
+
+This installation has been tested and confirmed working with the following setup:
+- **Environment**: Google Cloud Platform VM
+- **GPU**: NVIDIA L4 (with CPU fallback support)
+- **Python**: 3.7.9 via conda
+- **PyTorch**: 1.6.0
+- **Status**: ✅ All tests passing with strong performance metrics
+
+### Key Fixes Applied:
+- Fixed model architecture compatibility (GCN_FEATURE_DIM: 91 → 94)
+- Fixed feature loading to retain all 94 dimensions
+- Added proper .pkl file filtering
+- CUDA device compatibility (device 1 → 0)
+- Complete data extraction workflow
+
 ## 0. Update(2022-03-01)
 We have reimplemented the [GraphSol](https://github.com/jcchan23/SAIL/tree/main/Repeat/GraphSol) model by using dgl, which have been optimized in training time and costing memory without losing the accuracy.
 
@@ -10,6 +28,8 @@ We have reimplemented the [GraphSol](https://github.com/jcchan23/SAIL/tree/main/
 
 - [x] Merge the prediction workflow into the original workflow.
 - [x] Batch size > 1 in the reimplemention.
+- [x] Fix model architecture compatibility issues
+- [x] Add comprehensive installation instructions
 
 ## 1. Dependencies
 The code has been tested under Python 3.7.9, with the following packages installed (along with their dependencies):
@@ -22,14 +42,51 @@ The code has been tested under Python 3.7.9, with the following packages install
 ## 2. How to retrain the GraphSol model and test?
 If you want to reproduce our result, please refer to the steps below.
 
-### Step 1: Download all sequence features
-Please go to the path `./Data/Feature Link.txt` and download `Node Features.zip` and `Edge Features.zip`
+### Step 1: Create Conda Environment
+```bash
+# Create isolated environment for GraphSol
+conda create -n GraphSol python=3.7.9
+conda activate GraphSol
 
-### Step 2: Decompress all `.zip` files
-Please unzip 3 zip files and put them into the corresponding paths.
-- `./Data/node_features.zip` -> `./Data/node_features`
-- `./Data/edge_features.zip` -> `./Data/edge_features`
-- `./Data/fasta.zip` -> `./Data/fasta`
+# Install required packages
+pip install torch==1.6.0 numpy==1.19.1 scikit-learn==0.23.2 pandas==1.1.0 tqdm==4.48.2
+```
+
+### Step 2: Download Feature Files
+Download the required feature files from Google Drive:
+- **Google Drive Link**: https://drive.google.com/drive/folders/1ZfeQtLPtRuHeTtA-Iex4Bs2HrrFz25YX?usp=sharing
+
+```bash
+# Install gdown for Google Drive downloads
+pip install gdown
+
+# Download feature files
+gdown --folder https://drive.google.com/drive/folders/1ZfeQtLPtRuHeTtA-Iex4Bs2HrrFz25YX?usp=sharing
+```
+
+### Step 3: Extract All Feature Files
+```bash
+# Extract downloaded files to Data directory
+unzip GraphSol/node_features.zip -d Data/
+unzip GraphSol/edge_features.zip -d Data/
+unzip Data/fasta.zip -d Data/
+
+# Verify extraction
+ls -la Data/node_features/ | head -5
+ls -la Data/edge_features/ | head -5
+ls -la Data/fasta/ | head -5
+```
+
+### Step 4: Verify Setup
+```bash
+# Check that all required files are present
+ls -la Data/
+# Should show: node_features/, edge_features/, fasta/, eSol_test.csv, eSol_train.csv, etc.
+
+# Check model files
+ls -la Model/
+# Should show: best_model.pkl and Fold*_best_model.pkl files
+```
 
 ### Step 3: Run the training code
 Run the following python script and it will take about 1 hour to train the model.
@@ -38,11 +95,70 @@ $ python Train.py
 ```
 A trained model will be saved in the folder `./Model` and validation results in the folder `./Result`
 
-### Step 4: Run the test code
+### Step 5: Run the test code
 Run the following python script and it will be finished in a few seconds.
+
+**For CPU-only execution (recommended for compatibility):**
+```bash
+export CUDA_VISIBLE_DEVICES=""
+python Test.py
 ```
-$ python Test.py
+
+**For GPU execution (if CUDA is available):**
+```bash
+unset CUDA_VISIBLE_DEVICES
+python Test.py
 ```
+
+**Expected Output:**
+```
+best_model.pkl
+100%|████████████████████| 783/783 [00:XX<00:00, XX.XXit/s]
+========== Evaluate Test set ==========
+Test loss:  0.23065098684155594
+Test pearson: (0.6986683018529942, 1.0839972334993266e-115)
+Test r2: 0.4832564860545563
+Test binary acc:  0.7713920817369093
+Test precision: 0.7746031746031746
+Test recall:  0.6931818181818182
+Test f1:  0.7316341829085456
+Test auc:  0.8656797089221683
+Test mcc:  0.5360861010583435
+```
+
+## 2.1 Troubleshooting
+
+### Common Issues and Solutions:
+
+**1. Model Size Mismatch Error:**
+```
+RuntimeError: size mismatch for gcn.gc1.weight: copying a param with shape torch.Size([94, 256]) from checkpoint, the shape in current model is torch.Size([91, 256])
+```
+**Solution:** Ensure `GCN_FEATURE_DIM = 94` in `Test.py` (not 91)
+
+**2. Feature Dimension Mismatch:**
+```
+RuntimeError: size mismatch, m1: [359 x 91], m2: [94 x 256]
+```
+**Solution:** Ensure the `load_features()` function returns all 94 dimensions without column slicing
+
+**3. UnpicklingError:**
+```
+_pickle.UnpicklingError: invalid load key, '\x0a'
+```
+**Solution:** Add `.pkl` file filtering in the model loading loop to skip text files
+
+**4. CUDA Device Error:**
+```
+RuntimeError: CUDA error: device-side assert triggered
+```
+**Solution:** Use CPU-only mode with `export CUDA_VISIBLE_DEVICES=""`
+
+**5. Missing Feature Files:**
+```
+FileNotFoundError: [Errno 2] No such file or directory: './Data/node_features/...'
+```
+**Solution:** Ensure all 3 zip files are extracted: `node_features.zip`, `edge_features.zip`, `fasta.zip`
 
 ## 3. How to predict protein solubility by the pretrained GraphSol model?
 
